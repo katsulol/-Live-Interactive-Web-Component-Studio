@@ -1,4 +1,4 @@
-"""Live Interactive Multi-Language Web Component & Code Studio."""
+"""Live Interactive Multi-Language Web Component & Code Studio — EF Minimalist Edition."""
 import re
 import difflib
 import streamlit as st
@@ -14,52 +14,197 @@ db.init_db()
 
 # Page Setup
 st.set_page_config(
-    page_title="CodeStudio - Live Multi-Language AI Playground",
+    page_title="CodeStudio — Autonomous Engineering Studio",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
+# Entrepreneur First Minimalist Styling System
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Container Spacing */
     .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
+        padding-top: 1.25rem;
+        padding-bottom: 2.5rem;
         max-width: 95%;
     }
-    .badge {
+
+    /* EF Brand Mark */
+    .brand-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 4px;
+    }
+    .brand-mark {
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: #FAFAFA;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .brand-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #E11D48;
         display: inline-block;
-        padding: 0.25rem 0.6rem;
-        font-size: 0.8rem;
+        box-shadow: 0 0 10px rgba(225, 29, 72, 0.7);
+    }
+    .brand-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #71717A;
+    }
+
+    /* EF Micro Badges */
+    .ef-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
         font-weight: 600;
         border-radius: 9999px;
-        background-color: #2563eb;
-        color: white;
-        margin-right: 0.5rem;
+        background: #18181B;
+        border: 1px solid #27272A;
+        color: #E4E4E7;
+        margin-right: 6px;
     }
-    .badge-secondary {
-        background-color: #4b5563;
+    .ef-pill-rose {
+        background: rgba(225, 29, 72, 0.1);
+        border-color: rgba(225, 29, 72, 0.28);
+        color: #FB7185;
     }
-    .badge-success {
-        background-color: #059669;
+    .ef-pill-emerald {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.28);
+        color: #34D399;
     }
-    .terminal-box {
-        background-color: #0d1117;
-        color: #58a6ff;
-        padding: 1rem;
+
+    /* Minimalist Cards */
+    .ef-card {
+        background: #111114;
+        border: 1px solid #222226;
         border-radius: 8px;
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 0.9rem;
-        border: 1px solid #30363d;
+        padding: 1.4rem;
+        height: 100%;
+        transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    .ef-card:hover {
+        border-color: #3F3F46;
+    }
+    .ef-card-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #FB7185;
+        margin-bottom: 0.5rem;
+    }
+    .ef-card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #FAFAFA;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.4rem;
+    }
+    .ef-card-body {
+        font-size: 0.88rem;
+        color: #A1A1AA;
+        line-height: 1.5;
+    }
+
+    /* Terminal Console Window */
+    .terminal-window {
+        background: #09090C;
+        border: 1px solid #27272A;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 0.6rem;
+    }
+    .terminal-header {
+        background: #121216;
+        border-bottom: 1px solid #1E1E24;
+        padding: 0.55rem 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .terminal-dots {
+        display: flex;
+        gap: 6px;
+    }
+    .terminal-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .dot-red { background: #FF5F56; }
+    .dot-yellow { background: #FFBD2E; }
+    .dot-green { background: #27C93F; }
+    .terminal-title {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        color: #A1A1AA;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .terminal-body {
+        padding: 1.1rem;
+        font-family: 'JetBrains Mono', Courier, monospace;
+        font-size: 0.85rem;
+        color: #E4E4E7;
         white-space: pre-wrap;
         word-break: break-all;
-        min-height: 180px;
-        max-height: 450px;
+        min-height: 200px;
+        max-height: 500px;
         overflow-y: auto;
+        line-height: 1.55;
     }
-    .terminal-err {
-        color: #f85149;
+
+    /* Notification Banner */
+    .ef-banner {
+        background: #0E1613;
+        border: 1px solid #1A3D2E;
+        border-left: 3px solid #10B981;
+        padding: 1rem 1.25rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    }
+    .ef-banner-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #6EE7B7;
+        margin-bottom: 0.25rem;
+    }
+    .ef-banner-desc {
+        font-size: 0.85rem;
+        color: #D1FAE5;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Polished Tabs */
+    button[data-baseweb="tab"] {
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
+        letter-spacing: -0.01em !important;
+        padding: 0.65rem 1.1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -91,20 +236,24 @@ def compute_diff(old_code: str, new_code: str, old_label: str = "Old", new_label
 
 # Sidebar: Projects & Version History
 with st.sidebar:
-    st.markdown("## ⚡ **CodeStudio AI**")
-    st.caption("Prompt $\\rightarrow$ Working Code $\\rightarrow$ Live Execution")
+    st.markdown("""
+    <div class="brand-container">
+        <span class="brand-dot"></span>
+        <span class="brand-mark">CODESTUDIO</span>
+    </div>
+    <div class="brand-sub">Autonomous Code Engine // 01</div>
+    """, unsafe_allow_html=True)
     st.divider()
 
     # New Project Expander
-    with st.expander("➕ **Create New Project**", expanded=False):
-        new_proj_name = st.text_input("Project Name", placeholder="e.g. Finance Dashboard or QuickSort")
+    with st.expander("New Project", expanded=False):
+        new_proj_name = st.text_input("Project Name", placeholder="e.g. Portfolio Tracker")
         new_proj_lang = st.selectbox(
             "Target Language",
             ["HTML/Tailwind (Visual)", "Python", "Java", "JavaScript", "C++", "Go", "Rust"]
         )
-        if st.button("Create Project", use_container_width=True, type="primary"):
+        if st.button("Initialize Project", width="stretch", type="primary"):
             if new_proj_name.strip():
-                # Clean language key
                 lang_key = "html" if "HTML" in new_proj_lang else new_proj_lang.lower().split()[0]
                 new_id = db.create_project(new_proj_name.strip(), lang_key)
                 st.session_state.current_project_id = new_id
@@ -117,10 +266,9 @@ with st.sidebar:
     # Project Selector
     projects = db.list_projects()
     if projects:
-        st.markdown("### 📁 **Your Projects**")
-        proj_options = {p["id"]: f"{p['name']} ({p['language'].upper()}) - v{p['version_count']}" for p in projects}
+        st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:#71717A; margin-bottom:6px;'>Saved Vaults</p>", unsafe_allow_html=True)
+        proj_options = {p["id"]: f"{p['name']} ({p['language'].upper()}) · v{p['version_count']}" for p in projects}
         
-        # Default to first project if none selected
         if st.session_state.current_project_id not in proj_options:
             st.session_state.current_project_id = projects[0]["id"]
             
@@ -128,7 +276,8 @@ with st.sidebar:
             "Select Project",
             options=list(proj_options.keys()),
             format_func=lambda x: proj_options[x],
-            index=list(proj_options.keys()).index(st.session_state.current_project_id)
+            index=list(proj_options.keys()).index(st.session_state.current_project_id),
+            label_visibility="collapsed"
         )
         if selected_id != st.session_state.current_project_id:
             st.session_state.current_project_id = selected_id
@@ -141,18 +290,18 @@ with st.sidebar:
         versions = db.get_versions(st.session_state.current_project_id)
 
         if versions:
-            st.markdown("### ⏱️ **Version Timeline**")
-            ver_options = {v["id"]: f"v{v['version_number']} - {v['created_at'].split()[1][:5]} ({v['prompt'][:20]}...)" for v in versions}
+            st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:#71717A; margin-top:14px; margin-bottom:6px;'>Snapshot Timeline</p>", unsafe_allow_html=True)
+            ver_options = {v["id"]: f"v{v['version_number']} · {v['created_at'].split()[1][:5]} ({v['prompt'][:18]}...)" for v in versions}
             
-            # Default to latest version if not set or invalid
             if st.session_state.selected_version_id not in ver_options:
                 st.session_state.selected_version_id = versions[-1]["id"]
                 
             chosen_ver_id = st.selectbox(
-                "Active Version Snapshot",
+                "Active Snapshot",
                 options=list(ver_options.keys()),
                 format_func=lambda x: ver_options[x],
-                index=list(ver_options.keys()).index(st.session_state.selected_version_id)
+                index=list(ver_options.keys()).index(st.session_state.selected_version_id),
+                label_visibility="collapsed"
             )
             if chosen_ver_id != st.session_state.selected_version_id:
                 st.session_state.selected_version_id = chosen_ver_id
@@ -161,37 +310,62 @@ with st.sidebar:
 
         # Delete Project Option
         st.divider()
-        if st.button("🗑️ Delete Current Project", use_container_width=True):
+        if st.button("Delete Project Vault", width="stretch"):
             db.delete_project(st.session_state.current_project_id)
             st.session_state.current_project_id = None
             st.session_state.selected_version_id = None
             st.session_state.terminal_result = None
             st.rerun()
     else:
-        st.info("No projects yet. Create one above to get started!")
+        st.info("No projects yet. Create one above to get started.")
 
     st.divider()
-    # Model Selector
-    selected_model = st.selectbox("Groq LLM Engine", generator.AVAILABLE_MODELS, index=0)
+    st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:#71717A; margin-bottom:6px;'>Inference Engine</p>", unsafe_allow_html=True)
+    selected_model = st.selectbox("Groq LLM Engine", generator.AVAILABLE_MODELS, index=0, label_visibility="collapsed")
 
 # Main Application Area
 if not st.session_state.current_project_id:
-    # Landing / Welcome View
-    st.markdown("## 🚀 **Welcome to CodeStudio AI**")
-    st.markdown("Generate interactive web components and runnable multi-language code in seconds.")
+    # EF Landing / Welcome View
+    st.markdown("""
+    <div style="margin-top: 1.5rem; margin-bottom: 2rem;">
+        <span class="ef-pill ef-pill-rose">Autonomous IDE // v1.0</span>
+        <h1 style="font-size: 2.75rem; font-weight: 800; letter-spacing: -0.04em; color: #FAFAFA; margin-top: 0.75rem; margin-bottom: 0.5rem;">
+            Build software from pure intent.
+        </h1>
+        <p style="font-size: 1.1rem; color: #A1A1AA; max-width: 680px; line-height: 1.6;">
+            Turn natural language briefs into self-contained, interactive web applications and verified polyglot algorithms in seconds.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("### 🌐 **Live Web Studio**")
-        st.write("Generates single-file HTML/Tailwind/JS apps rendered live in an interactive sandbox.")
+        st.markdown("""
+        <div class="ef-card">
+            <div class="ef-card-tag">Sandbox // 01</div>
+            <div class="ef-card-title">Live Web Studio</div>
+            <div class="ef-card-body">Generates single-file HTML5 + Tailwind CSS + JavaScript web applications rendered directly in an interactive browser runtime.</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col2:
-        st.markdown("### 💻 **Multi-Language Runner**")
-        st.write("Generates Python, Java, JavaScript, and C++ code. Runs instantly with terminal output.")
+        st.markdown("""
+        <div class="ef-card">
+            <div class="ef-card-tag">Execution // 02</div>
+            <div class="ef-card-title">Polyglot Runner</div>
+            <div class="ef-card-body">Compiles and runs Python 3.12, Java 22, Node.js, C++17, Rust, and Go with telemetry and live stdout/stderr streams.</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col3:
-        st.markdown("### 🔄 **Iterative Versioning**")
-        st.write("Refine code iteratively via natural language with snapshot timeline & rollback.")
+        st.markdown("""
+        <div class="ef-card">
+            <div class="ef-card-tag">Evolution // 03</div>
+            <div class="ef-card-title">Snapshot Diffing</div>
+            <div class="ef-card-body">Refine code iteratively via natural language. Every modification produces an immutable snapshot with unified code diffs.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.info("👈 Create a project in the sidebar to start!")
+    st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
+    st.info("Initialize a project vault in the sidebar to start building.")
     st.stop()
 
 # Load current active project and version
@@ -214,27 +388,35 @@ if versions:
         db.update_project_language(current_project["id"], active_version["language"])
         current_project["language"] = active_version["language"]
 
-# Header Bar
-header_cols = st.columns([2.2, 1.3, 0.9, 0.9])
+# Top Header Bar
+header_cols = st.columns([2.3, 1.2, 0.75, 0.75])
 with header_cols[0]:
-    lang_upper = current_project['language'].upper()
-    ver_str = f"v{active_version['version_number']}" if active_version else "v0 (Empty)"
-    st.markdown(f"## **{current_project['name']}**")
-    st.markdown(f"<span class='badge'>{lang_upper}</span> <span class='badge badge-secondary'>{ver_str}</span>", unsafe_allow_html=True)
+    lang_upper = active_version['language'].upper() if active_version else current_project['language'].upper()
+    ver_str = f"v{active_version['version_number']}" if active_version else "v0"
+    st.markdown(f"""
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+        <h2 style="margin: 0; font-weight: 700; letter-spacing: -0.03em; color: #FAFAFA;">{current_project['name']}</h2>
+        <div>
+            <span class="ef-pill ef-pill-rose">{lang_upper}</span>
+            <span class="ef-pill">{ver_str}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with header_cols[1]:
-    # Language Mode Switcher
     target_langs = ["HTML/Tailwind (Visual)", "Python", "Java", "JavaScript", "C++", "Go", "Rust"]
     current_idx = 0
+    active_lang_key = active_version["language"] if active_version else current_project["language"]
     for idx, tl in enumerate(target_langs):
-        if (current_project["language"] == "html" and "HTML" in tl) or (current_project["language"] == tl.lower().split()[0]):
+        if (active_lang_key == "html" and "HTML" in tl) or (active_lang_key == tl.lower().split()[0]):
             current_idx = idx
             break
     new_lang_choice = st.selectbox(
         "Project Language Mode",
         options=target_langs,
         index=current_idx,
-        key=f"proj_lang_selector_{current_project['id']}"
+        key=f"proj_lang_selector_{current_project['id']}",
+        label_visibility="collapsed"
     )
     clean_new_lang = "html" if "HTML" in new_lang_choice else new_lang_choice.lower().split()[0]
     if clean_new_lang != current_project["language"]:
@@ -244,24 +426,23 @@ with header_cols[1]:
 
 with header_cols[2]:
     if active_version:
-        # File extension helper
         ext_map = {"html": "html", "python": "py", "java": "java", "javascript": "js", "c++": "cpp", "go": "go", "rust": "rs"}
-        ext = ext_map.get(current_project["language"], "txt")
+        ext = ext_map.get(active_version.get("language", current_project["language"]), "txt")
         filename = f"{current_project['name'].lower().replace(' ', '_')}_v{active_version['version_number']}.{ext}"
         st.download_button(
-            label="💾 Download",
+            label="Download",
             data=active_version["code"],
             file_name=filename,
             mime="text/plain",
-            use_container_width=True
+            width="stretch"
         )
 
 with header_cols[3]:
-    if active_version and current_project["language"] not in ("html", "web"):
-        if st.button("▶️ Run Code", type="primary", use_container_width=True):
-            with st.spinner(f"Running {current_project['language'].upper()}..."):
-                res = runner.execute_code(current_project["language"], active_version["code"])
-                st.session_state.terminal_result = res
+    if active_version and active_version.get("language") not in ("html", "web"):
+        if st.button("Run Code", type="primary", width="stretch"):
+            with st.spinner(f"Compiling & executing {active_version['language'].upper()}..."):
+                res = runner.execute_code(active_version["language"], active_version["code"])
+                st.session_state[f"term_res_{active_version['id']}"] = res
                 st.rerun()
 
 # Banner Alert if a Refinement was just applied
@@ -269,19 +450,19 @@ if st.session_state.refinement_notice:
     notice = st.session_state.refinement_notice
     with st.container():
         st.markdown(f"""
-        <div style="background-color: #064e3b; border: 1px solid #059669; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <h4 style="color: #6ee7b7; margin: 0 0 0.5rem 0;">✨ Version {notice['to_v']} Successfully Created from v{notice['from_v']}!</h4>
-            <p style="color: #d1fae5; margin: 0 0 0.5rem 0;"><b>Change Request:</b> <i>"{notice['prompt']}"</i></p>
-            <span class="badge badge-success">+{notice['added']} lines added</span>
-            <span class="badge" style="background-color: #dc2626;">-{notice['removed']} lines removed</span>
+        <div class="ef-banner">
+            <div class="ef-banner-title">● Snapshot v{notice['to_v']} Deployed (from v{notice['from_v']})</div>
+            <div class="ef-banner-desc"><b>Modification:</b> <i>"{notice['prompt']}"</i></div>
+            <span class="ef-pill ef-pill-emerald">+{notice['added']} lines added</span>
+            <span class="ef-pill ef-pill-rose">-{notice['removed']} lines removed</span>
         </div>
         """, unsafe_allow_html=True)
-        with st.expander("🔍 View Change Diff (What Changed)", expanded=True):
+        with st.expander("Inspect Code Diff", expanded=False):
             if notice["diff"].strip():
                 st.code(notice["diff"], language="diff")
             else:
-                st.info("No code text differences detected.")
-        if st.button("✕ Dismiss Notification", key="dismiss_banner"):
+                st.info("No textual code delta detected.")
+        if st.button("Dismiss", key="dismiss_banner"):
             st.session_state.refinement_notice = None
             st.rerun()
 
@@ -289,58 +470,57 @@ st.divider()
 
 # View: Initial Generation Prompt if no versions exist
 if not active_version:
-    st.markdown("### 💡 **Generate Initial Code**")
-    st.write(f"Describe what you want to build in **{current_project['language'].upper()}**:")
+    st.markdown("<h3 style='font-weight:700; letter-spacing:-0.03em;'>Synthesize Initial Prototype</h3>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:#A1A1AA; font-size:0.95rem;'>Describe the specification for <b>{current_project['language'].upper()}</b>:</p>", unsafe_allow_html=True)
 
-    # Starter inspiration chips
     sample_prompts = {
         "html": [
-            "Modern Loan & Mortgage Calculator with interactive sliders and monthly breakdown chart",
-            "Interactive Kanban Board with drag-and-drop tasks, color tags, and dark mode",
-            "Crypto Price Tracker dashboard with simulated live charts and buy/sell modal"
+            "Mortgage & Amortization Calculator with real-time sliders, breakdown charts, and dark theme",
+            "Kanban Board with drag-and-drop tasks, color priority tags, local persistence, and filtering",
+            "Real-time Crypto Portfolio Simulator with simulated tick charts and buy/sell modal"
         ],
         "python": [
-            "CLI Password Manager simulation with AES encryption, password generator, and strength meter",
-            "Data Analysis script generating synthetic sales data, summaries, and ASCII charts",
-            "A* Pathfinding algorithm on a 20x20 grid with step-by-step console visualization"
+            "CLI Key-Value Store with WAL log, AES encryption, snapshot compression, and benchmarks",
+            "Statistical Outlier Detection engine with synthetic time-series data and formatted ASCII summary",
+            "A* Pathfinding visualization on a 20x20 grid with step-by-step heuristic metrics"
         ],
         "java": [
-            "Complete Binary Search Tree implementation with insert, delete, and in-order/pre-order traversals",
-            "Bank Account Simulator with multi-threaded deposits, withdrawals, and transaction audit log",
-            "LRU Cache implementation with generic keys/values and benchmark demonstration"
+            "Self-balancing Red-Black Tree implementation with insertion, deletion, and level-order traversal",
+            "Concurrent Banking Ledger with simulated thread-safe transactions and invariant audit check",
+            "High-performance generic LRU Cache with TTL expiry and micro-benchmarks"
         ],
         "javascript": [
-            "Event-driven Pub/Sub message broker system with subscriber filtering and metrics",
-            "Rate-limiting Token Bucket algorithm demonstration with simulated burst traffic"
+            "Distributed Event Bus simulation with regex topic matching, backpressure, and metrics",
+            "Token Bucket Rate Limiter with simulated concurrent request spikes and rejection logs"
         ]
     }
     
     current_samples = sample_prompts.get(current_project["language"], sample_prompts["html"])
-    st.caption("Or pick a template:")
+    st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.1em; color:#71717A; margin-bottom:4px;'>Curated Blueprints</p>", unsafe_allow_html=True)
     selected_sample = None
     cols = st.columns(len(current_samples))
     for i, s_prompt in enumerate(current_samples):
-        if cols[i].button(s_prompt[:45] + "...", key=f"chip_{i}", use_container_width=True):
+        if cols[i].button(s_prompt[:42] + "...", key=f"chip_{i}", width="stretch"):
             selected_sample = s_prompt
 
     initial_prompt = st.text_area(
         "Prompt",
         value=selected_sample if selected_sample else "",
-        placeholder="e.g. Build an interactive loan calculator with responsive dark theme...",
-        height=140
+        placeholder="e.g. Build an interactive loan calculator with responsive dark theme and real-time computation...",
+        height=130,
+        label_visibility="collapsed"
     )
 
-    if st.button("🚀 Generate Code with AI", type="primary", use_container_width=True):
+    if st.button("Synthesize Prototype with AI", type="primary", width="stretch"):
         if initial_prompt.strip():
-            with st.spinner(f"Generating {current_project['language'].upper()} code with Groq ({selected_model})..."):
+            with st.spinner(f"Synthesizing {current_project['language'].upper()} prototype with Groq ({selected_model})..."):
                 try:
                     res = generator.generate_code(initial_prompt, current_project["language"], model=selected_model)
                     new_code = res["code"]
-                    # If non-web, run immediately to populate output
                     init_output = ""
                     if current_project["language"] not in ("html", "web"):
                         exec_res = runner.execute_code(current_project["language"], new_code)
-                        st.session_state.terminal_result = exec_res
+                        st.session_state[f"term_res_init"] = exec_res
                         init_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
                     new_row_id = db.add_version(
@@ -351,20 +531,20 @@ if not active_version:
                         output=init_output
                     )
                     st.session_state.selected_version_id = new_row_id
-                    st.success(f"Version 1 generated successfully!")
+                    st.success("Prototype synthesized successfully.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Generation error: {str(e)}")
         else:
-            st.warning("Please enter a prompt first.")
+            st.warning("Please provide a prompt.")
     st.stop()
 
-# Existing Project with active version: 4 Tabs (Live Preview/Console, Code View, AI Iteration, Diff Viewer)
+# Existing Project with active version: 4 Tabs
 tab_preview, tab_code, tab_refine, tab_diff = st.tabs([
-    "🖥️ **Live Execution & Preview**",
-    "📝 **Code Inspector**",
-    "💬 **Iterative AI Refinement**",
-    "🔍 **Version Diff & History**"
+    "Preview & Runtime",
+    "Code Inspector",
+    "Iterative AI Refinement",
+    "Version Diff"
 ])
 
 # TAB 1: PREVIEW / CONSOLE
@@ -378,8 +558,15 @@ with tab_preview:
     )
 
     if is_html:
-        st.markdown(f"#### 🌐 **Live Web Preview** (Sandboxed Browser — v{active_version['version_number']})")
-        # Clean any accidental leading/trailing markdown fences
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #A1A1AA;">
+                Runtime // Browser Sandbox (v{active_version['version_number']})
+            </span>
+            <span class="ef-pill ef-pill-emerald">● Live DOM</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
         clean_html = re.sub(r"^```(?:html)?\s*", "", raw_code, flags=re.IGNORECASE)
         clean_html = re.sub(r"```\s*$", "", clean_html).strip()
         components.html(
@@ -388,19 +575,25 @@ with tab_preview:
             scrolling=True
         )
     else:
-        st.markdown(f"#### 💻 **Terminal Output** ({current_project['language'].upper()} — v{active_version['version_number']})")
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #A1A1AA;">
+                Runtime // {active_version.get('language', current_project['language']).upper()} Console (v{active_version['version_number']})
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Banner & Convert to Web UI Action
-        col_mode_msg, col_mode_btn = st.columns([2.8, 1.2])
+        col_mode_msg, col_mode_btn = st.columns([3, 1.2])
         with col_mode_msg:
-            st.warning("⚠️ **Mode: Python Terminal / Console**. The box below shows terminal text output. Want a visual clickable UI with buttons & styling?")
+            st.info("Operating in Terminal Mode. Output reflects CLI stdout.")
         with col_mode_btn:
-            if st.button("🌐 Convert to Visual Web UI", type="primary", use_container_width=True):
-                with st.status("🔄 Generating interactive Web UI with Tailwind CSS...", expanded=True) as status:
-                    status.write("🧠 Synthesizing full interactive HTML/Tailwind/JS web app...")
+            if st.button("Convert to Web UI", type="primary", width="stretch"):
+                with st.status("Synthesizing interactive Web UI with Tailwind CSS...", expanded=True) as status:
+                    status.write("Synthesizing responsive HTML/Tailwind/JS web app...")
                     convert_prompt = f"Convert this {current_project['name']} program into a modern, complete, interactive visual Web App with Tailwind CSS, input controls, buttons, dark mode, and real-time results:\n\n{active_version['code']}"
                     res = generator.generate_code(convert_prompt, "html", model=selected_model)
-                    status.write("💾 Updating project mode to HTML and saving snapshot...")
+                    status.write("Saving snapshot to vault...")
                     db.update_project_language(current_project["id"], "html")
                     new_ver_id = db.add_version(
                         current_project["id"],
@@ -418,16 +611,16 @@ with tab_preview:
                         "removed": 0,
                         "diff": ""
                     }
-                    status.update(label="✅ Converted to Visual Web App!", state="complete")
-                    st.toast("✅ Converted to Visual Web App!")
+                    status.update(label="Converted to Visual Web App.", state="complete")
+                    st.toast("Converted to Visual Web App.")
                     st.rerun()
         
         # Stdin input expander
-        with st.expander("⌨️ Optional Program Input (stdin)", expanded=False):
-            stdin_input = st.text_area("Input to feed to program", height=80)
-            if st.button("Run with this Input"):
+        with st.expander("Program Input (stdin)", expanded=False):
+            stdin_input = st.text_area("Input data for process stream", height=80, label_visibility="collapsed")
+            if st.button("Execute with Input", width="stretch"):
                 with st.spinner("Executing..."):
-                    res = runner.execute_code(current_project["language"], active_version["code"], stdin=stdin_input)
+                    res = runner.execute_code(active_version.get("language", current_project["language"]), active_version["code"], stdin=stdin_input)
                     st.session_state[f"term_res_{active_version['id']}"] = res
                     st.rerun()
 
@@ -443,15 +636,14 @@ with tab_preview:
                     "engine": "Snapshot Output"
                 }
             else:
-                with st.spinner("Running initial execution..."):
-                    term_res = runner.execute_code(current_project["language"], active_version["code"])
+                with st.spinner("Executing initial run..."):
+                    term_res = runner.execute_code(active_version.get("language", current_project["language"]), active_version["code"])
                     st.session_state[f"term_res_{active_version['id']}"] = term_res
 
         engine_name = term_res.get("engine", "Executor")
         exit_code = term_res.get("exit_code", 0)
-        status_label = "🟢 SUCCESS" if term_res.get("success") else "🔴 FAILED"
-        
-        st.caption(f"Status: **{status_label}** (Exit Code: {exit_code}) | Engine: `{engine_name}`")
+        status_label = "SUCCESS" if term_res.get("success") else "FAILED"
+        status_color = "#34D399" if term_res.get("success") else "#F87171"
         
         stdout_text = term_res.get("stdout", "").strip()
         stderr_text = term_res.get("stderr", "").strip()
@@ -464,64 +656,78 @@ with tab_preview:
                 output_display += "\n\n--- ERRORS / WARNINGS ---\n"
             output_display += stderr_text
         if not output_display:
-            output_display = "[Program executed with no console output]"
+            output_display = "[Process executed with zero output]"
             
-        st.markdown(f"<div class='terminal-box'>{output_display}</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <span class="terminal-dot dot-red"></span>
+                    <span class="terminal-dot dot-yellow"></span>
+                    <span class="terminal-dot dot-green"></span>
+                </div>
+                <span class="terminal-title">PROCESS // {engine_name}</span>
+                <span style="font-family:'JetBrains Mono', monospace; font-size:0.72rem; color:{status_color}; font-weight:600;">{status_label} (EXIT {exit_code})</span>
+            </div>
+            <div class="terminal-body">{output_display}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # TAB 2: CODE INSPECTOR
 with tab_code:
+    code_lang = active_version.get("language", current_project["language"])
     col_code_top1, col_code_top2 = st.columns([3, 1])
     with col_code_top1:
-        st.markdown(f"#### 📄 **Source Code** ({current_project['language'].upper()})")
+        st.markdown(f"<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:#A1A1AA; margin:0;'>Artifact Source // {code_lang.upper()}</p>", unsafe_allow_html=True)
     with col_code_top2:
-        st.caption(f"Lines: {len(active_version['code'].splitlines())} | Chars: {len(active_version['code'])}")
+        st.markdown(f"<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.75rem; color:#71717A; text-align:right; margin:0;'>{len(active_version['code'].splitlines())} lines · {len(active_version['code']):,} bytes</p>", unsafe_allow_html=True)
         
-    syntax_lang = "html" if current_project["language"] in ("html", "web") else current_project["language"]
+    syntax_lang = "html" if code_lang in ("html", "web") else code_lang
     st.code(active_version["code"], language=syntax_lang, line_numbers=True)
 
 # TAB 3: ITERATIVE AI REFINEMENT
 with tab_refine:
-    st.markdown("#### 💬 **Iterate & Modify with AI**")
-    st.markdown("Ask the LLM to make changes, add features, refactor, or fix bugs. Each modification creates a new tracked version snapshot.")
+    st.markdown("<h4 style='font-weight:700; letter-spacing:-0.03em;'>Iterative Refinement Engine</h4>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#A1A1AA; font-size:0.9rem;'>Issue natural language directives to update the codebase. Every modification generates an immutable snapshot with verified diffs.</p>", unsafe_allow_html=True)
     
-    # Prompt used for current active version
-    with st.expander(f"ℹ️ Original Prompt for active snapshot (v{active_version['version_number']})", expanded=False):
+    with st.expander(f"Original Prompt for active snapshot (v{active_version['version_number']})", expanded=False):
         st.info(active_version["prompt"])
         
     quick_mods = [
-        "Add a dark mode toggle and improve color scheme",
+        "Add a dark mode toggle and polish color palette",
         "Add unit test cases to verify edge cases",
-        "Add error handling and input validation",
-        "Make design responsive with mobile drawer"
+        "Add strict input validation and defensive error handling",
+        "Refactor layout for mobile responsiveness"
     ]
-    st.caption("Quick modification suggestions:")
+    st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.1em; color:#71717A; margin-bottom:4px;'>Quick Modifiers</p>", unsafe_allow_html=True)
     mod_cols = st.columns(len(quick_mods))
     chosen_mod = None
     for i, qm in enumerate(quick_mods):
-        if mod_cols[i].button(qm, key=f"mod_chip_{i}", use_container_width=True):
+        if mod_cols[i].button(qm, key=f"mod_chip_{i}", width="stretch"):
             chosen_mod = qm
             
     refine_prompt = st.text_area(
-        "What changes would you like to make?",
+        "Modification Directive",
         value=chosen_mod if chosen_mod else "",
-        placeholder="e.g. Add a search filter box and make the buttons rounded with hover animations...",
-        height=120
+        placeholder="e.g. Add an interactive search filter box and animate transition cards...",
+        height=120,
+        label_visibility="collapsed"
     )
     
-    if st.button("🚀 Apply Modifications (Create Next Version)", type="primary", use_container_width=True):
+    if st.button("Synthesize Modifications (Deploy Next Snapshot)", type="primary", width="stretch"):
         if refine_prompt.strip():
-            with st.status("🔄 Synthesizing refinements with AI...", expanded=True) as status:
+            with st.status("Synthesizing refinements with AI...", expanded=True) as status:
                 try:
-                    status.write(f"🧠 Querying Groq ({selected_model}) with current code and instructions...")
+                    status.write(f"Querying Groq ({selected_model}) with codebase context...")
                     res = generator.refine_code(
                         existing_code=active_version["code"],
                         modification_prompt=refine_prompt,
-                        language=current_project["language"],
+                        language=active_version.get("language", current_project["language"]),
                         model=selected_model
                     )
                     updated_code = res["code"]
                     
-                    status.write("⚡ Computing line-by-line differences...")
+                    status.write("Computing syntactic code diff...")
                     diff_text, added, removed = compute_diff(
                         active_version["code"],
                         updated_code,
@@ -530,27 +736,25 @@ with tab_refine:
                     )
                     
                     new_output = ""
-                    if current_project["language"] not in ("html", "web"):
-                        status.write(f"▶️ Executing updated {current_project['language'].upper()} code...")
-                        exec_res = runner.execute_code(current_project["language"], updated_code)
-                        st.session_state.terminal_result = exec_res
+                    active_lang = active_version.get("language", current_project["language"])
+                    if active_lang not in ("html", "web"):
+                        status.write(f"Executing updated {active_lang.upper()} process...")
+                        exec_res = runner.execute_code(active_lang, updated_code)
                         new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
-                    status.write("💾 Storing new snapshot in SQLite database...")
+                    status.write("Writing snapshot to vault...")
                     new_ver_id = db.add_version(
                         current_project["id"],
                         refine_prompt,
                         updated_code,
-                        current_project["language"],
+                        active_lang,
                         output=new_output
                     )
                     
-                    # Fetch exact version number
                     all_vers = db.get_versions(current_project["id"])
                     new_ver_obj = next((v for v in all_vers if v["id"] == new_ver_id), None)
                     new_ver_num = new_ver_obj["version_number"] if new_ver_obj else active_version["version_number"] + 1
 
-                    # Store notice so the user gets immediate visual feedback after rerun
                     st.session_state["refinement_notice"] = {
                         "from_v": active_version["version_number"],
                         "to_v": new_ver_num,
@@ -559,47 +763,46 @@ with tab_refine:
                         "removed": removed,
                         "diff": diff_text
                     }
-                    # Activate the newly created version immediately!
                     st.session_state.selected_version_id = new_ver_id
                     
-                    status.update(label=f"✅ Version {new_ver_num} Created! (+{added}/-{removed} lines)", state="complete")
-                    st.toast(f"✅ Version {new_ver_num} Created! (+{added}/-{removed} lines)")
+                    status.update(label=f"Snapshot v{new_ver_num} Deployed (+{added}/-{removed} lines)", state="complete")
+                    st.toast(f"Snapshot v{new_ver_num} Deployed.")
                     st.rerun()
                 except Exception as e:
-                    status.update(label="❌ Refinement failed", state="error")
+                    status.update(label="Refinement failed", state="error")
                     st.error(f"Refinement error: {str(e)}")
         else:
-            st.warning("Please describe what changes you want to apply.")
+            st.warning("Please describe what changes to apply.")
 
     # Show history of all prompts applied in this project
     if len(versions) > 1:
         st.divider()
-        st.markdown("#### 📜 **Refinement History in this Project**")
+        st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.12em; color:#71717A; margin-bottom:8px;'>Evolutionary History</p>", unsafe_allow_html=True)
         for v in reversed(versions):
-            st.markdown(f"**v{v['version_number']}** ({v['created_at'].split()[1][:5]}): *{v['prompt']}*")
+            st.markdown(f"<p style='font-size:0.86rem; color:#D4D4D8; margin-bottom:4px;'><b>v{v['version_number']}</b> <span style='color:#71717A;'>({v['created_at'].split()[1][:5]})</span>: <i>{v['prompt']}</i></p>", unsafe_allow_html=True)
 
 # TAB 4: VERSION DIFF & COMPARISON
 with tab_diff:
-    st.markdown("#### 🔍 **Version Diff Inspector**")
-    st.markdown("Compare code differences between any two snapshots of this project.")
+    st.markdown("<h4 style='font-weight:700; letter-spacing:-0.03em;'>Snapshot Comparator</h4>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#A1A1AA; font-size:0.9rem;'>Inspect granular code changes between any two project snapshots.</p>", unsafe_allow_html=True)
     
     if len(versions) < 2:
-        st.info("Only 1 version exists so far. Apply a refinement in the **'Iterative AI Refinement'** tab to generate a new version and compare changes!")
+        st.info("Only 1 version exists. Synthesize a refinement to generate and compare snapshots.")
     else:
         diff_col1, diff_col2 = st.columns(2)
         with diff_col1:
             base_v_num = st.selectbox(
-                "Base Version (Old)",
+                "Base Snapshot",
                 options=[v["version_number"] for v in versions],
                 index=max(0, len(versions) - 2),
-                format_func=lambda x: f"Version {x}"
+                format_func=lambda x: f"Snapshot v{x}"
             )
         with diff_col2:
             target_v_num = st.selectbox(
-                "Compare With (New)",
+                "Compare Snapshot",
                 options=[v["version_number"] for v in versions],
                 index=len(versions) - 1,
-                format_func=lambda x: f"Version {x}"
+                format_func=lambda x: f"Snapshot v{x}"
             )
             
         base_v = next(v for v in versions if v["version_number"] == base_v_num)
@@ -613,17 +816,15 @@ with tab_diff:
         )
         
         stat_col1, stat_col2, stat_col3 = st.columns(3)
-        stat_col1.metric("Lines Added (+)", f"+{lines_added}")
-        stat_col2.metric("Lines Removed (-)", f"-{lines_removed}")
-        stat_col3.metric("Net Change", f"{lines_added - lines_removed:+d}")
+        stat_col1.metric("Lines Added", f"+{lines_added}")
+        stat_col2.metric("Lines Removed", f"-{lines_removed}")
+        stat_col3.metric("Net Delta", f"{lines_added - lines_removed:+d}")
         
-        st.caption(f"**Base Prompt (v{base_v_num}):** {base_v['prompt']}")
-        st.caption(f"**Target Prompt (v{target_v_num}):** {target_v['prompt']}")
+        st.markdown(f"<p style='font-size:0.82rem; color:#71717A; margin-top:8px;'><b>v{base_v_num}:</b> <i>{base_v['prompt']}</i><br><b>v{target_v_num}:</b> <i>{target_v['prompt']}</i></p>", unsafe_allow_html=True)
         
         st.divider()
         if diff_text.strip():
-            st.markdown("##### 📄 **Unified Code Diff** (Green: Added | Red: Removed)")
+            st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:#A1A1AA;'>Unified Code Diff</p>", unsafe_allow_html=True)
             st.code(diff_text, language="diff")
         else:
-            st.info("The code in both selected versions is identical.")
-
+            st.info("The code in both selected snapshots is identical.")
