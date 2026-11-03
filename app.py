@@ -151,8 +151,7 @@ with st.sidebar:
                 "Active Version Snapshot",
                 options=list(ver_options.keys()),
                 format_func=lambda x: ver_options[x],
-                index=list(ver_options.keys()).index(st.session_state.selected_version_id),
-                key="version_snapshot_picker"
+                index=list(ver_options.keys()).index(st.session_state.selected_version_id)
             )
             if chosen_ver_id != st.session_state.selected_version_id:
                 st.session_state.selected_version_id = chosen_ver_id
@@ -395,7 +394,6 @@ with tab_preview:
                         output="Web Component rendered in browser sandbox."
                     )
                     st.session_state.selected_version_id = new_ver_id
-                    st.session_state["version_snapshot_picker"] = new_ver_id
                     st.session_state["refinement_notice"] = {
                         "from_v": active_version["version_number"],
                         "to_v": active_version["version_number"] + 1,
