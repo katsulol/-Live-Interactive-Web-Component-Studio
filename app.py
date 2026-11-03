@@ -291,7 +291,7 @@ with st.sidebar:
 
         if versions:
             st.markdown("<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.12em; color:#71717A; margin-top:14px; margin-bottom:6px;'>Snapshot Timeline</p>", unsafe_allow_html=True)
-            ver_options = {v["id"]: f"v{v['version_number']} · {v['created_at'].split()[1][:5]} ({v['prompt'][:18]}...)" for v in versions}
+            ver_options = {v["id"]: f"v{v['version_number']} [{v.get('language', 'code').upper()}] · {v['created_at'].split()[1][:5]} ({v['prompt'][:16]}...)" for v in versions}
             
             if st.session_state.selected_version_id not in ver_options:
                 st.session_state.selected_version_id = versions[-1]["id"]
@@ -414,6 +414,10 @@ with header_cols[1]:
             clean_lang = "html" if "HTML" in chosen_label else chosen_label.lower().split()[0]
             db.update_project_language(current_project["id"], clean_lang)
             st.session_state.terminal_result = None
+            all_v = db.get_versions(current_project["id"])
+            matching = [v for v in all_v if v.get("language", "").lower() == clean_lang]
+            if matching:
+                st.session_state.selected_version_id = matching[-1]["id"]
 
     st.selectbox(
         "Project Language Mode",
@@ -443,6 +447,57 @@ with header_cols[3]:
             with st.spinner(f"Compiling & executing {active_version['language'].upper()}..."):
                 res = runner.execute_code(active_version["language"], active_version["code"])
                 st.session_state[f"term_res_{active_version['id']}"] = res
+                st.rerun()
+
+# Language Mismatch / Transpile Banner
+if active_version and active_version.get("language", "").lower() != current_project["language"].lower():
+    target_l = current_project["language"].upper()
+    active_l = active_version.get("language", "code").upper()
+    col_t_banner, col_t_actions = st.columns([2.5, 1.5])
+    with col_t_banner:
+        st.markdown(f"""
+        <div style="background:#141416; border:1px solid #27272A; border-left:3px solid #E11D48; border-radius:6px; padding:0.6rem 0.9rem; margin-top:0.4rem; margin-bottom:0.6rem;">
+            <div style="font-family:'JetBrains Mono', monospace; font-size:0.68rem; color:#E11D48; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Language Mode Mismatch</div>
+            <div style="font-size:0.85rem; color:#FAFAFA; margin-top:2px;">Project target is <b>{target_l}</b>, but active snapshot v{active_version['version_number']} is in <b>{active_l}</b>.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_t_actions:
+        st.markdown("<div style='margin-top:0.4rem;'></div>", unsafe_allow_html=True)
+        if st.button(f"⚡ Transpile to {target_l}", type="primary", width="stretch", key="transpile_header_action"):
+            with st.status(f"Transpiling codebase from {active_l} to {target_l} via Groq ({selected_model})...", expanded=True) as status:
+                status.write(f"Generating idiomatic {target_l} equivalent...")
+                if current_project["language"] in ("html", "web"):
+                    conv_prompt = f"Convert this {active_l} program into a complete, modern, interactive visual Web Application with Tailwind CSS and JavaScript:\n\n{active_version['code']}"
+                else:
+                    conv_prompt = f"Convert this {active_l} program into a complete, standalone, production-ready {target_l} program with working main execution and console output:\n\n{active_version['code']}"
+                
+                res = generator.generate_code(conv_prompt, current_project["language"], model=selected_model)
+                new_code = res["code"]
+                
+                status.write(f"Verifying runtime output for {target_l}...")
+                new_output = ""
+                if current_project["language"] not in ("html", "web"):
+                    exec_res = runner.execute_code(current_project["language"], new_code)
+                    new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
+                
+                new_ver_id = db.add_version(
+                    current_project["id"],
+                    f"Transpile from {active_l} to {target_l}",
+                    new_code,
+                    current_project["language"],
+                    output=new_output or f"{target_l} code generated successfully."
+                )
+                st.session_state.selected_version_id = new_ver_id
+                st.session_state["refinement_notice"] = {
+                    "from_v": active_version["version_number"],
+                    "to_v": active_version["version_number"] + 1,
+                    "prompt": f"Transpiled from {active_l} to {target_l}",
+                    "added": len(new_code.splitlines()),
+                    "removed": 0,
+                    "diff": ""
+                }
+                status.update(label=f"Successfully deployed v{active_version['version_number'] + 1} ({target_l}).", state="complete")
+                st.toast(f"Transpiled to {target_l}.")
                 st.rerun()
 
 # Banner Alert if a Refinement was just applied
@@ -682,7 +737,21 @@ with tab_code:
     with col_code_top2:
         st.markdown(f"<p style='font-family:\"JetBrains Mono\", monospace; font-size:0.75rem; color:#71717A; text-align:right; margin:0;'>{len(active_version['code'].splitlines())} lines · {len(active_version['code']):,} bytes</p>", unsafe_allow_html=True)
         
-    syntax_lang = "html" if code_lang in ("html", "web") else code_lang
+    syntax_map = {
+        "html": "html",
+        "web": "html",
+        "python": "python",
+        "java": "java",
+        "javascript": "javascript",
+        "js": "javascript",
+        "c++": "cpp",
+        "cpp": "cpp",
+        "go": "go",
+        "rust": "rust"
+    }
+    syntax_lang = syntax_map.get(code_lang.lower(), code_lang.lower())
+    if code_lang.lower() != current_project["language"].lower():
+        st.caption(f"Note: Snapshot v{active_version['version_number']} is in {code_lang.upper()}. Use the Transpile button above to convert it to {current_project['language'].upper()}.")
     st.code(active_version["code"], language=syntax_lang, line_numbers=True)
 
 # TAB 3: ITERATIVE AI REFINEMENT
@@ -718,7 +787,7 @@ with tab_refine:
         if refine_prompt.strip():
             with st.status("Synthesizing refinements with AI...", expanded=True) as status:
                 try:
-                    target_lang = current_project["language"]
+                    target_lang = active_version.get("language", current_project["language"])
                     status.write(f"Querying Groq ({selected_model}) for {target_lang.upper()} with codebase context...")
                     res = generator.refine_code(
                         existing_code=active_version["code"],
@@ -795,14 +864,14 @@ with tab_diff:
                 "Base Snapshot",
                 options=[v["version_number"] for v in versions],
                 index=max(0, len(versions) - 2),
-                format_func=lambda x: f"Snapshot v{x}"
+                format_func=lambda x: f"Snapshot v{x} [{next((v.get('language', '').upper() for v in versions if v['version_number'] == x), '')}]"
             )
         with diff_col2:
             target_v_num = st.selectbox(
                 "Compare Snapshot",
                 options=[v["version_number"] for v in versions],
                 index=len(versions) - 1,
-                format_func=lambda x: f"Snapshot v{x}"
+                format_func=lambda x: f"Snapshot v{x} [{next((v.get('language', '').upper() for v in versions if v['version_number'] == x), '')}]"
             )
             
         base_v = next(v for v in versions if v["version_number"] == base_v_num)
