@@ -30,7 +30,9 @@ When generating Python code:
 - Output clean, modern, standalone Python 3 code.
 - Include working test cases, clear stdout outputs, and docstrings.
 - Self-contained: runs from top to bottom with standard library or common packages.
-- CRITICAL: Output ONLY the raw executable code inside a ```python ... ``` block. No markdown chatter.
+- CRITICAL: Do NOT generate Tkinter or PyQt GUI code, and do NOT write interactive `input()` loops (because this runs in a headless console without a desktop GUI or interactive TTY).
+- If the user asks for a UI, demonstrate the functionality with a beautiful formatted ASCII terminal dashboard and simulated inputs.
+- Output ONLY the raw executable code inside a ```python ... ``` block. No markdown chatter.
 """,
     "java": """You are a senior Java engineer.
 When generating Java code:

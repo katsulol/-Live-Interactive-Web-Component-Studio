@@ -374,7 +374,39 @@ with tab_preview:
         )
     else:
         st.markdown(f"#### 💻 **Terminal Output** ({current_project['language'].upper()} — v{active_version['version_number']})")
-        st.info("💡 **Mode: CLI / Terminal Output**. If you want a visual interactive Web UI with buttons, inputs, and styling, change **'Project Language Mode'** in the header to **HTML/Tailwind (Visual)** and ask the AI in the Refine tab to make a Web UI!")
+        
+        # Banner & Convert to Web UI Action
+        col_mode_msg, col_mode_btn = st.columns([2.8, 1.2])
+        with col_mode_msg:
+            st.warning("⚠️ **Mode: Python Terminal / Console**. The box below shows terminal text output. Want a visual clickable UI with buttons & styling?")
+        with col_mode_btn:
+            if st.button("🌐 Convert to Visual Web UI", type="primary", use_container_width=True):
+                with st.status("🔄 Generating interactive Web UI with Tailwind CSS...", expanded=True) as status:
+                    status.write("🧠 Synthesizing full interactive HTML/Tailwind/JS web app...")
+                    convert_prompt = f"Convert this {current_project['name']} program into a modern, complete, interactive visual Web App with Tailwind CSS, input controls, buttons, dark mode, and real-time results:\n\n{active_version['code']}"
+                    res = generator.generate_code(convert_prompt, "html", model=selected_model)
+                    status.write("💾 Updating project mode to HTML and saving snapshot...")
+                    db.update_project_language(current_project["id"], "html")
+                    new_ver_id = db.add_version(
+                        current_project["id"],
+                        "Convert to Interactive Web UI",
+                        res["code"],
+                        "html",
+                        output="Web Component rendered in browser sandbox."
+                    )
+                    st.session_state.selected_version_id = new_ver_id
+                    st.session_state["version_snapshot_picker"] = new_ver_id
+                    st.session_state["refinement_notice"] = {
+                        "from_v": active_version["version_number"],
+                        "to_v": active_version["version_number"] + 1,
+                        "prompt": "Converted to Interactive Web UI",
+                        "added": len(res["code"].splitlines()),
+                        "removed": 0,
+                        "diff": ""
+                    }
+                    status.update(label="✅ Converted to Visual Web App!", state="complete")
+                    st.toast("✅ Converted to Visual Web App!")
+                    st.rerun()
         
         # Stdin input expander
         with st.expander("⌨️ Optional Program Input (stdin)", expanded=False):
@@ -382,16 +414,24 @@ with tab_preview:
             if st.button("Run with this Input"):
                 with st.spinner("Executing..."):
                     res = runner.execute_code(current_project["language"], active_version["code"], stdin=stdin_input)
-                    st.session_state.terminal_result = res
+                    st.session_state[f"term_res_{active_version['id']}"] = res
                     st.rerun()
 
-        # Display terminal output
-        term_res = st.session_state.terminal_result
+        # Display terminal output for active version
+        term_res = st.session_state.get(f"term_res_{active_version['id']}")
         if not term_res:
-            # Auto-run once if empty
-            with st.spinner("Running initial execution..."):
-                term_res = runner.execute_code(current_project["language"], active_version["code"])
-                st.session_state.terminal_result = term_res
+            if active_version.get("output"):
+                term_res = {
+                    "success": True,
+                    "stdout": active_version["output"],
+                    "stderr": "",
+                    "exit_code": 0,
+                    "engine": "Snapshot Output"
+                }
+            else:
+                with st.spinner("Running initial execution..."):
+                    term_res = runner.execute_code(current_project["language"], active_version["code"])
+                    st.session_state[f"term_res_{active_version['id']}"] = term_res
 
         engine_name = term_res.get("engine", "Executor")
         exit_code = term_res.get("exit_code", 0)

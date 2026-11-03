@@ -38,3 +38,5 @@ studio.db
 .idea/
 .DS_Store
 Thumbs.db
+.agents/
+.claude/
