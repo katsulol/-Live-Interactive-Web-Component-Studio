@@ -368,8 +368,7 @@ with tab_preview:
         components.html(
             active_version["code"],
             height=680,
-            scrolling=True,
-            key=f"html_iframe_v_{active_version['id']}_{len(active_version['code'])}"
+            scrolling=True
         )
     else:
         st.markdown(f"#### 💻 **Terminal Output** ({current_project['language'].upper()} — v{active_version['version_number']})")
