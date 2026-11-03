@@ -65,12 +65,26 @@ def get_client() -> Groq:
     return Groq(api_key=api_key)
 
 def clean_code(raw_response: str) -> str:
-    """Extract clean code from markdown code fences or return raw if no fences."""
+    """Extract clean code from markdown code fences even if truncated or unclosed."""
+    text = raw_response.strip()
+    
+    # Check for complete code block ```lang ... ```
     pattern = r"```(?:[a-zA-Z0-9_\-\+]+)?\s*\n([\s\S]*?)```"
-    match = re.search(pattern, raw_response)
+    match = re.search(pattern, text)
     if match:
         return match.group(1).strip()
-    return raw_response.strip()
+        
+    # If code fence opened at start but closing fence was truncated
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline + 1:].strip()
+            
+    # Strip any trailing markdown fences
+    if text.endswith("```"):
+        text = text[:-3].strip()
+        
+    return text
 
 def generate_code(prompt: str, language: str = "html", model: str = DEFAULT_MODEL) -> Dict[str, Any]:
     """Generate brand new code from a natural language prompt."""
@@ -87,7 +101,7 @@ def generate_code(prompt: str, language: str = "html", model: str = DEFAULT_MODE
             {"role": "user", "content": user_message}
         ],
         temperature=0.3,
-        max_tokens=4096
+        max_tokens=8192
     )
 
     raw_text = response.choices[0].message.content or ""
@@ -138,7 +152,7 @@ CRITICAL: Return the FULL updated standalone code in a ```{language} ... ``` cod
         model=model,
         messages=messages,
         temperature=0.3,
-        max_tokens=4096
+        max_tokens=8192
     )
 
     raw_text = response.choices[0].message.content or ""

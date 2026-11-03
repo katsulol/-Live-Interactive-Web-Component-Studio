@@ -1,4 +1,5 @@
 """Live Interactive Multi-Language Web Component & Code Studio."""
+import re
 import difflib
 import streamlit as st
 import streamlit.components.v1 as components
@@ -208,6 +209,11 @@ if versions:
     else:
         active_version = versions[-1]
 
+    # Auto-sync project language if active version has a distinct language
+    if active_version and active_version.get("language") and active_version["language"] != current_project["language"]:
+        db.update_project_language(current_project["id"], active_version["language"])
+        current_project["language"] = active_version["language"]
+
 # Header Bar
 header_cols = st.columns([2.2, 1.3, 0.9, 0.9])
 with header_cols[0]:
@@ -363,11 +369,22 @@ tab_preview, tab_code, tab_refine, tab_diff = st.tabs([
 
 # TAB 1: PREVIEW / CONSOLE
 with tab_preview:
-    if current_project["language"] in ("html", "web"):
+    raw_code = active_version["code"].strip()
+    is_html = (
+        active_version.get("language", "").lower() in ("html", "web")
+        or current_project.get("language", "").lower() in ("html", "web")
+        or "<!doctype html" in raw_code.lower()
+        or "<html" in raw_code.lower()
+    )
+
+    if is_html:
         st.markdown(f"#### 🌐 **Live Web Preview** (Sandboxed Browser — v{active_version['version_number']})")
+        # Clean any accidental leading/trailing markdown fences
+        clean_html = re.sub(r"^```(?:html)?\s*", "", raw_code, flags=re.IGNORECASE)
+        clean_html = re.sub(r"```\s*$", "", clean_html).strip()
         components.html(
-            active_version["code"],
-            height=680,
+            clean_html,
+            height=720,
             scrolling=True
         )
     else:
