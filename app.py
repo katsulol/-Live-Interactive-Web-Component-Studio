@@ -5,9 +5,15 @@ import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime
 
+import importlib
 import db
 import generator
 import runner
+
+# Ensure hot-reloading for local engine modules
+importlib.reload(generator)
+importlib.reload(runner)
+importlib.reload(db)
 
 # Initialize database
 db.init_db()
