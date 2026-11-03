@@ -2,7 +2,7 @@
 - Web (HTML/JS): Rendered in browser iframe.
 - Python: Run locally via Python 3.12 (instant) or Wandbox fallback.
 - JavaScript: Run locally via Node.js (instant) or Wandbox fallback.
-- Java / C++ / Rust / Go: Run via Wandbox API (free, no auth, full sandbox).
+- Java / C++ / Rust / Go: Run via Wandbox API with verified compiler targets.
 """
 import sys
 import os
@@ -12,27 +12,51 @@ import requests
 from typing import Dict, Any
 
 WANDBOX_API = "https://wandbox.org/api/compile.json"
+WANDBOX_LIST_API = "https://wandbox.org/api/list.json"
 
-WANDBOX_COMPILERS = {
+# Verified active Wandbox compilers
+VERIFIED_COMPILERS = {
     "java": "openjdk-jdk-22+36",
-    "c++": "gcc-13.2.0",
-    "cpp": "gcc-13.2.0",
-    "c": "gcc-13.2.0",
-    "rust": "rust-1.78.0",
-    "go": "go-1.22.2",
-    "python": "cpython-3.12.3",
+    "c++": "gcc-head",
+    "cpp": "gcc-head",
+    "c": "gcc-head-c",
+    "rust": "rust-1.82.0",
+    "go": "go-1.23.2",
+    "python": "cpython-head",
     "javascript": "nodejs-20.17.0"
 }
+
+_DYNAMIC_COMPILER_CACHE = {}
+
+def get_compiler(language: str) -> str:
+    """Retrieve verified compiler string with dynamic fallback from Wandbox."""
+    lang = language.lower().strip()
+    if lang in VERIFIED_COMPILERS:
+        return VERIFIED_COMPILERS[lang]
+        
+    global _DYNAMIC_COMPILER_CACHE
+    if not _DYNAMIC_COMPILER_CACHE:
+        try:
+            resp = requests.get(WANDBOX_LIST_API, timeout=6)
+            if resp.status_code == 200:
+                for item in resp.json():
+                    l_key = item.get("language", "").lower()
+                    if l_key and l_key not in _DYNAMIC_COMPILER_CACHE:
+                        _DYNAMIC_COMPILER_CACHE[l_key] = item.get("name")
+        except Exception:
+            pass
+
+    return _DYNAMIC_COMPILER_CACHE.get(lang, "gcc-head")
 
 def execute_code(language: str, code: str, stdin: str = "") -> Dict[str, Any]:
     """Execute code and return structured execution result."""
     lang = language.lower().strip()
 
-    # Web Mode: rendered directly in iframe
+    # Web Mode: rendered in iframe
     if lang in ("html", "html/js", "web"):
         return {
             "success": True,
-            "stdout": "Web Component rendered in live iframe.",
+            "stdout": "Web Component rendered in live browser iframe.",
             "stderr": "",
             "exit_code": 0,
             "engine": "Browser Iframe"
@@ -43,7 +67,6 @@ def execute_code(language: str, code: str, stdin: str = "") -> Dict[str, Any]:
         local_res = _run_python_local(code, stdin)
         if local_res["success"] or "Timed out" in local_res["stderr"]:
             return local_res
-        # Fall back to Wandbox if local execution failed unexpectedly
         return _run_wandbox("python", code, stdin)
 
     # JavaScript / Node: prefer local node if available
@@ -123,12 +146,11 @@ def _run_node_local(code: str, stdin: str = "") -> Dict[str, Any]:
         }
 
 def _run_wandbox(language: str, code: str, stdin: str = "") -> Dict[str, Any]:
-    compiler = WANDBOX_COMPILERS.get(language, WANDBOX_COMPILERS.get("c++"))
+    compiler = get_compiler(language)
     
-    # In Java on Wandbox, class Prog or non-public class avoids "class is public should be in file named..."
+    # In Java on Wandbox, convert public class to package-private to avoid filename mismatch
     clean_code = code
     if language == "java":
-        # Replace 'public class <Name>' with 'class <Name>'
         clean_code = re.sub(r"\bpublic\s+class\s+(\w+)", r"class \1", clean_code)
 
     payload = {
@@ -138,7 +160,7 @@ def _run_wandbox(language: str, code: str, stdin: str = "") -> Dict[str, Any]:
     }
 
     try:
-        resp = requests.post(WANDBOX_API, json=payload, timeout=15)
+        resp = requests.post(WANDBOX_API, json=payload, timeout=25)
         if resp.status_code == 200:
             data = resp.json()
             stdout = data.get("program_output", "") or data.get("program_message", "")
@@ -160,6 +182,14 @@ def _run_wandbox(language: str, code: str, stdin: str = "") -> Dict[str, Any]:
                 "exit_code": 1,
                 "engine": "Wandbox Sandbox"
             }
+    except requests.exceptions.Timeout:
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": f"Sandbox compilation timed out (25s limit).",
+            "exit_code": -1,
+            "engine": "Wandbox Sandbox"
+        }
     except Exception as e:
         return {
             "success": False,
