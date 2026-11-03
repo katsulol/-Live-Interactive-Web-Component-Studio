@@ -74,6 +74,15 @@ def delete_project(project_id: int) -> None:
         cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         conn.commit()
 
+def update_project_language(project_id: int, language: str) -> None:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE projects SET language = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (language, project_id)
+        )
+        conn.commit()
+
 def add_version(project_id: int, prompt: str, code: str, language: str, output: str = "") -> int:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -88,12 +97,13 @@ def add_version(project_id: int, prompt: str, code: str, language: str, output: 
                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
             (project_id, next_version, prompt, code, language, output)
         )
+        new_row_id = cursor.lastrowid
         cursor.execute(
             "UPDATE projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (project_id,)
         )
         conn.commit()
-        return next_version
+        return new_row_id
 
 def get_versions(project_id: int) -> List[Dict[str, Any]]:
     with get_connection() as conn:

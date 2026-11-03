@@ -143,7 +143,7 @@ with st.sidebar:
             st.markdown("### ⏱️ **Version Timeline**")
             ver_options = {v["id"]: f"v{v['version_number']} - {v['created_at'].split()[1][:5]} ({v['prompt'][:20]}...)" for v in versions}
             
-            # Default to latest version if not set
+            # Default to latest version if not set or invalid
             if st.session_state.selected_version_id not in ver_options:
                 st.session_state.selected_version_id = versions[-1]["id"]
                 
@@ -151,7 +151,8 @@ with st.sidebar:
                 "Active Version Snapshot",
                 options=list(ver_options.keys()),
                 format_func=lambda x: ver_options[x],
-                index=list(ver_options.keys()).index(st.session_state.selected_version_id)
+                index=list(ver_options.keys()).index(st.session_state.selected_version_id),
+                key="version_snapshot_picker"
             )
             if chosen_ver_id != st.session_state.selected_version_id:
                 st.session_state.selected_version_id = chosen_ver_id
@@ -209,7 +210,7 @@ if versions:
         active_version = versions[-1]
 
 # Header Bar
-header_cols = st.columns([3, 1, 1])
+header_cols = st.columns([2.2, 1.3, 0.9, 0.9])
 with header_cols[0]:
     lang_upper = current_project['language'].upper()
     ver_str = f"v{active_version['version_number']}" if active_version else "v0 (Empty)"
@@ -217,20 +218,40 @@ with header_cols[0]:
     st.markdown(f"<span class='badge'>{lang_upper}</span> <span class='badge badge-secondary'>{ver_str}</span>", unsafe_allow_html=True)
 
 with header_cols[1]:
+    # Language Mode Switcher
+    target_langs = ["HTML/Tailwind (Visual)", "Python", "Java", "JavaScript", "C++", "Go", "Rust"]
+    current_idx = 0
+    for idx, tl in enumerate(target_langs):
+        if (current_project["language"] == "html" and "HTML" in tl) or (current_project["language"] == tl.lower().split()[0]):
+            current_idx = idx
+            break
+    new_lang_choice = st.selectbox(
+        "Project Language Mode",
+        options=target_langs,
+        index=current_idx,
+        key=f"proj_lang_selector_{current_project['id']}"
+    )
+    clean_new_lang = "html" if "HTML" in new_lang_choice else new_lang_choice.lower().split()[0]
+    if clean_new_lang != current_project["language"]:
+        db.update_project_language(current_project["id"], clean_new_lang)
+        st.session_state.terminal_result = None
+        st.rerun()
+
+with header_cols[2]:
     if active_version:
         # File extension helper
         ext_map = {"html": "html", "python": "py", "java": "java", "javascript": "js", "c++": "cpp", "go": "go", "rust": "rs"}
         ext = ext_map.get(current_project["language"], "txt")
         filename = f"{current_project['name'].lower().replace(' ', '_')}_v{active_version['version_number']}.{ext}"
         st.download_button(
-            label="💾 Download Code",
+            label="💾 Download",
             data=active_version["code"],
             file_name=filename,
             mime="text/plain",
             use_container_width=True
         )
 
-with header_cols[2]:
+with header_cols[3]:
     if active_version and current_project["language"] not in ("html", "web"):
         if st.button("▶️ Run Code", type="primary", use_container_width=True):
             with st.spinner(f"Running {current_project['language'].upper()}..."):
@@ -317,14 +338,14 @@ if not active_version:
                         st.session_state.terminal_result = exec_res
                         init_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
-                    ver_num = db.add_version(
+                    new_row_id = db.add_version(
                         current_project["id"],
                         initial_prompt,
                         new_code,
                         current_project["language"],
                         output=init_output
                     )
-                    st.session_state.selected_version_id = None
+                    st.session_state.selected_version_id = new_row_id
                     st.success(f"Version 1 generated successfully!")
                     st.rerun()
                 except Exception as e:
@@ -344,10 +365,16 @@ tab_preview, tab_code, tab_refine, tab_diff = st.tabs([
 # TAB 1: PREVIEW / CONSOLE
 with tab_preview:
     if current_project["language"] in ("html", "web"):
-        st.markdown("#### 🌐 **Live Web Preview** (Sandboxed Browser)")
-        components.html(active_version["code"], height=680, scrolling=True)
+        st.markdown(f"#### 🌐 **Live Web Preview** (Sandboxed Browser — v{active_version['version_number']})")
+        components.html(
+            active_version["code"],
+            height=680,
+            scrolling=True,
+            key=f"html_iframe_v_{active_version['id']}_{len(active_version['code'])}"
+        )
     else:
-        st.markdown(f"#### 💻 **Terminal Output** ({current_project['language'].upper()})")
+        st.markdown(f"#### 💻 **Terminal Output** ({current_project['language'].upper()} — v{active_version['version_number']})")
+        st.info("💡 **Mode: CLI / Terminal Output**. If you want a visual interactive Web UI with buttons, inputs, and styling, change **'Project Language Mode'** in the header to **HTML/Tailwind (Visual)** and ask the AI in the Refine tab to make a Web UI!")
         
         # Stdin input expander
         with st.expander("⌨️ Optional Program Input (stdin)", expanded=False):
@@ -456,7 +483,7 @@ with tab_refine:
                         new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
                     status.write("💾 Storing new snapshot in SQLite database...")
-                    new_ver_num = db.add_version(
+                    new_ver_id = db.add_version(
                         current_project["id"],
                         refine_prompt,
                         updated_code,
@@ -464,6 +491,11 @@ with tab_refine:
                         output=new_output
                     )
                     
+                    # Fetch exact version number
+                    all_vers = db.get_versions(current_project["id"])
+                    new_ver_obj = next((v for v in all_vers if v["id"] == new_ver_id), None)
+                    new_ver_num = new_ver_obj["version_number"] if new_ver_obj else active_version["version_number"] + 1
+
                     # Store notice so the user gets immediate visual feedback after rerun
                     st.session_state["refinement_notice"] = {
                         "from_v": active_version["version_number"],
@@ -473,7 +505,8 @@ with tab_refine:
                         "removed": removed,
                         "diff": diff_text
                     }
-                    st.session_state.selected_version_id = None
+                    # Activate the newly created version immediately!
+                    st.session_state.selected_version_id = new_ver_id
                     
                     status.update(label=f"✅ Version {new_ver_num} Created! (+{added}/-{removed} lines)", state="complete")
                     st.toast(f"✅ Version {new_ver_num} Created! (+{added}/-{removed} lines)")
