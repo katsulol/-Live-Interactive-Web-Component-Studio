@@ -1,4 +1,5 @@
 """Live Interactive Multi-Language Web Component & Code Studio."""
+import difflib
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime
@@ -69,6 +70,23 @@ if "selected_version_id" not in st.session_state:
     st.session_state.selected_version_id = None
 if "terminal_result" not in st.session_state:
     st.session_state.terminal_result = None
+if "refinement_notice" not in st.session_state:
+    st.session_state.refinement_notice = None
+
+def compute_diff(old_code: str, new_code: str, old_label: str = "Old", new_label: str = "New"):
+    """Compute unified diff and count added/removed lines."""
+    old_lines = old_code.splitlines(keepends=True)
+    new_lines = new_code.splitlines(keepends=True)
+    diff = list(difflib.unified_diff(
+        old_lines, new_lines,
+        fromfile=old_label,
+        tofile=new_label,
+        n=3
+    ))
+    diff_text = "".join(diff)
+    added = sum(1 for line in diff if line.startswith("+") and not line.startswith("+++"))
+    removed = sum(1 for line in diff if line.startswith("-") and not line.startswith("---"))
+    return diff_text, added, removed
 
 # Sidebar: Projects & Version History
 with st.sidebar:
@@ -220,6 +238,27 @@ with header_cols[2]:
                 st.session_state.terminal_result = res
                 st.rerun()
 
+# Banner Alert if a Refinement was just applied
+if st.session_state.refinement_notice:
+    notice = st.session_state.refinement_notice
+    with st.container():
+        st.markdown(f"""
+        <div style="background-color: #064e3b; border: 1px solid #059669; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+            <h4 style="color: #6ee7b7; margin: 0 0 0.5rem 0;">✨ Version {notice['to_v']} Successfully Created from v{notice['from_v']}!</h4>
+            <p style="color: #d1fae5; margin: 0 0 0.5rem 0;"><b>Change Request:</b> <i>"{notice['prompt']}"</i></p>
+            <span class="badge badge-success">+{notice['added']} lines added</span>
+            <span class="badge" style="background-color: #dc2626;">-{notice['removed']} lines removed</span>
+        </div>
+        """, unsafe_allow_html=True)
+        with st.expander("🔍 View Change Diff (What Changed)", expanded=True):
+            if notice["diff"].strip():
+                st.code(notice["diff"], language="diff")
+            else:
+                st.info("No code text differences detected.")
+        if st.button("✕ Dismiss Notification", key="dismiss_banner"):
+            st.session_state.refinement_notice = None
+            st.rerun()
+
 st.divider()
 
 # View: Initial Generation Prompt if no versions exist
@@ -294,11 +333,12 @@ if not active_version:
             st.warning("Please enter a prompt first.")
     st.stop()
 
-# Existing Project with active version: 3 Tabs (Live Preview/Console, Code View, AI Iteration)
-tab_preview, tab_code, tab_refine = st.tabs([
+# Existing Project with active version: 4 Tabs (Live Preview/Console, Code View, AI Iteration, Diff Viewer)
+tab_preview, tab_code, tab_refine, tab_diff = st.tabs([
     "🖥️ **Live Execution & Preview**",
     "📝 **Code Inspector**",
-    "💬 **Iterative AI Refinement**"
+    "💬 **Iterative AI Refinement**",
+    "🔍 **Version Diff & History**"
 ])
 
 # TAB 1: PREVIEW / CONSOLE
@@ -361,10 +401,10 @@ with tab_code:
 # TAB 3: ITERATIVE AI REFINEMENT
 with tab_refine:
     st.markdown("#### 💬 **Iterate & Modify with AI**")
-    st.markdown("Ask the LLM to make changes, add features, refactor, or fix bugs. Each change creates a new version.")
+    st.markdown("Ask the LLM to make changes, add features, refactor, or fix bugs. Each modification creates a new tracked version snapshot.")
     
-    # Prompt used for current version
-    with st.expander(f"ℹ️ Original Prompt for v{active_version['version_number']}", expanded=False):
+    # Prompt used for current active version
+    with st.expander(f"ℹ️ Original Prompt for active snapshot (v{active_version['version_number']})", expanded=False):
         st.info(active_version["prompt"])
         
     quick_mods = [
@@ -389,8 +429,9 @@ with tab_refine:
     
     if st.button("🚀 Apply Modifications (Create Next Version)", type="primary", use_container_width=True):
         if refine_prompt.strip():
-            with st.spinner(f"Refining code with Groq ({selected_model})..."):
+            with st.status("🔄 Synthesizing refinements with AI...", expanded=True) as status:
                 try:
+                    status.write(f"🧠 Querying Groq ({selected_model}) with current code and instructions...")
                     res = generator.refine_code(
                         existing_code=active_version["code"],
                         modification_prompt=refine_prompt,
@@ -399,13 +440,22 @@ with tab_refine:
                     )
                     updated_code = res["code"]
                     
-                    # Run if non-web
+                    status.write("⚡ Computing line-by-line differences...")
+                    diff_text, added, removed = compute_diff(
+                        active_version["code"],
+                        updated_code,
+                        old_label=f"v{active_version['version_number']}",
+                        new_label=f"v{active_version['version_number'] + 1}"
+                    )
+                    
                     new_output = ""
                     if current_project["language"] not in ("html", "web"):
+                        status.write(f"▶️ Executing updated {current_project['language'].upper()} code...")
                         exec_res = runner.execute_code(current_project["language"], updated_code)
                         st.session_state.terminal_result = exec_res
                         new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
+                    status.write("💾 Storing new snapshot in SQLite database...")
                     new_ver_num = db.add_version(
                         current_project["id"],
                         refine_prompt,
@@ -413,10 +463,80 @@ with tab_refine:
                         current_project["language"],
                         output=new_output
                     )
+                    
+                    # Store notice so the user gets immediate visual feedback after rerun
+                    st.session_state["refinement_notice"] = {
+                        "from_v": active_version["version_number"],
+                        "to_v": new_ver_num,
+                        "prompt": refine_prompt,
+                        "added": added,
+                        "removed": removed,
+                        "diff": diff_text
+                    }
                     st.session_state.selected_version_id = None
-                    st.success(f"Created version {new_ver_num} successfully!")
+                    
+                    status.update(label=f"✅ Version {new_ver_num} Created! (+{added}/-{removed} lines)", state="complete")
+                    st.toast(f"✅ Version {new_ver_num} Created! (+{added}/-{removed} lines)")
                     st.rerun()
                 except Exception as e:
+                    status.update(label="❌ Refinement failed", state="error")
                     st.error(f"Refinement error: {str(e)}")
         else:
             st.warning("Please describe what changes you want to apply.")
+
+    # Show history of all prompts applied in this project
+    if len(versions) > 1:
+        st.divider()
+        st.markdown("#### 📜 **Refinement History in this Project**")
+        for v in reversed(versions):
+            st.markdown(f"**v{v['version_number']}** ({v['created_at'].split()[1][:5]}): *{v['prompt']}*")
+
+# TAB 4: VERSION DIFF & COMPARISON
+with tab_diff:
+    st.markdown("#### 🔍 **Version Diff Inspector**")
+    st.markdown("Compare code differences between any two snapshots of this project.")
+    
+    if len(versions) < 2:
+        st.info("Only 1 version exists so far. Apply a refinement in the **'Iterative AI Refinement'** tab to generate a new version and compare changes!")
+    else:
+        diff_col1, diff_col2 = st.columns(2)
+        with diff_col1:
+            base_v_num = st.selectbox(
+                "Base Version (Old)",
+                options=[v["version_number"] for v in versions],
+                index=max(0, len(versions) - 2),
+                format_func=lambda x: f"Version {x}"
+            )
+        with diff_col2:
+            target_v_num = st.selectbox(
+                "Compare With (New)",
+                options=[v["version_number"] for v in versions],
+                index=len(versions) - 1,
+                format_func=lambda x: f"Version {x}"
+            )
+            
+        base_v = next(v for v in versions if v["version_number"] == base_v_num)
+        target_v = next(v for v in versions if v["version_number"] == target_v_num)
+        
+        diff_text, lines_added, lines_removed = compute_diff(
+            base_v["code"],
+            target_v["code"],
+            old_label=f"v{base_v_num}",
+            new_label=f"v{target_v_num}"
+        )
+        
+        stat_col1, stat_col2, stat_col3 = st.columns(3)
+        stat_col1.metric("Lines Added (+)", f"+{lines_added}")
+        stat_col2.metric("Lines Removed (-)", f"-{lines_removed}")
+        stat_col3.metric("Net Change", f"{lines_added - lines_removed:+d}")
+        
+        st.caption(f"**Base Prompt (v{base_v_num}):** {base_v['prompt']}")
+        st.caption(f"**Target Prompt (v{target_v_num}):** {target_v['prompt']}")
+        
+        st.divider()
+        if diff_text.strip():
+            st.markdown("##### 📄 **Unified Code Diff** (Green: Added | Red: Removed)")
+            st.code(diff_text, language="diff")
+        else:
+            st.info("The code in both selected versions is identical.")
+
