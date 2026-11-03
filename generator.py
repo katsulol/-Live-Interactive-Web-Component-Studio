@@ -179,3 +179,49 @@ CRITICAL: Return the FULL updated standalone code in a ```{language} ... ``` cod
         "model": model,
         "tokens_used": response.usage.total_tokens if response.usage else 0
     }
+
+def fix_code(
+    broken_code: str,
+    error_message: str,
+    language: str,
+    model: str = DEFAULT_MODEL
+) -> Dict[str, Any]:
+    """Diagnose compile-time or runtime error and synthesize a targeted fix."""
+    client = get_client()
+    lang_key = "html" if language.lower() in ("html", "html/js", "web") else language.lower()
+    system_prompt = SYSTEM_PROMPTS.get(lang_key, SYSTEM_PROMPTS["default"])
+
+    fix_instruction = f"""Here is {language.upper()} code that failed during compilation or runtime:
+```{language}
+{broken_code}
+```
+
+COMPILER / RUNTIME ERROR OUTPUT:
+{error_message}
+
+TASK:
+1. Analyze the compiler or syntax error trace.
+2. Fix the error completely while preserving all original logic and structure.
+3. CRITICAL: Output ONLY the full corrected, standalone, runnable {language.upper()} code inside a ```{language} ... ``` block. No conversational prose or explanations.
+"""
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": fix_instruction}
+        ],
+        temperature=0.1,
+        max_tokens=8192
+    )
+
+    raw_text = response.choices[0].message.content or ""
+    code = clean_code(raw_text)
+
+    return {
+        "code": code,
+        "language": language,
+        "model": model,
+        "tokens_used": response.usage.total_tokens if response.usage else 0
+    }
+

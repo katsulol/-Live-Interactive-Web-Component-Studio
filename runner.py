@@ -164,14 +164,16 @@ def _run_wandbox(language: str, code: str, stdin: str = "") -> Dict[str, Any]:
         if resp.status_code == 200:
             data = resp.json()
             stdout = data.get("program_output", "") or data.get("program_message", "")
-            stderr = data.get("compiler_error", "") or data.get("program_error", "")
-            status = data.get("status", "0")
+            stderr = data.get("compiler_error", "") or data.get("compiler_message", "") or data.get("program_error", "")
+            status = str(data.get("status", "0"))
+            has_error = (status != "0") or ("error:" in stderr.lower())
+            is_success = not has_error
             
             return {
-                "success": status == "0" and not stderr,
+                "success": is_success,
                 "stdout": stdout,
                 "stderr": stderr,
-                "exit_code": int(status) if status.isdigit() else 0,
+                "exit_code": int(status) if status.isdigit() else (0 if is_success else 1),
                 "engine": f"Wandbox Sandbox ({compiler})"
             }
         else:

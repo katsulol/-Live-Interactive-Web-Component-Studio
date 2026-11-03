@@ -478,6 +478,13 @@ if active_version and active_version.get("language", "").lower() != current_proj
                 new_output = ""
                 if current_project["language"] not in ("html", "web"):
                     exec_res = runner.execute_code(current_project["language"], new_code)
+                    if not exec_res.get("success") and exec_res.get("stderr"):
+                        status.write("⚠️ Compiler error detected. Auto-healing with AI...")
+                        fix_res = generator.fix_code(new_code, exec_res["stderr"], current_project["language"], model=selected_model)
+                        re_res = runner.execute_code(current_project["language"], fix_res["code"])
+                        if re_res.get("success") or len(re_res.get("stderr", "")) < len(exec_res.get("stderr", "")):
+                            new_code = fix_res["code"]
+                            exec_res = re_res
                     new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                 
                 new_ver_id = db.add_version(
@@ -575,6 +582,13 @@ if not active_version:
                     init_output = ""
                     if current_project["language"] not in ("html", "web"):
                         exec_res = runner.execute_code(current_project["language"], new_code)
+                        if not exec_res.get("success") and exec_res.get("stderr"):
+                            with st.spinner("Compile error detected. Auto-fixing with AI..."):
+                                fix_res = generator.fix_code(new_code, exec_res["stderr"], current_project["language"], model=selected_model)
+                                re_res = runner.execute_code(current_project["language"], fix_res["code"])
+                                if re_res.get("success") or len(re_res.get("stderr", "")) < len(exec_res.get("stderr", "")):
+                                    new_code = fix_res["code"]
+                                    exec_res = re_res
                         st.session_state[f"term_res_init"] = exec_res
                         init_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
@@ -713,6 +727,65 @@ with tab_preview:
         if not output_display:
             output_display = "[Process executed with zero output]"
             
+        if not term_res.get("success") or exit_code != 0:
+            err_details = stderr_text or stdout_text or "Process exited with non-zero exit code."
+            col_fix_msg, col_fix_btn = st.columns([2.5, 1.5])
+            with col_fix_msg:
+                st.markdown(f"""
+                <div style="background:#181012; border:1px solid #5C1D24; border-left:3px solid #E11D48; border-radius:6px; padding:0.6rem 0.9rem; margin-top:0.3rem; margin-bottom:0.6rem;">
+                    <span style="font-family:'JetBrains Mono', monospace; font-size:0.68rem; color:#E11D48; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Compilation / Runtime Error</span>
+                    <div style="font-size:0.85rem; color:#FECDD3; margin-top:2px;">Execution failed (Exit {exit_code}). Automated self-healing available.</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_fix_btn:
+                st.markdown("<div style='margin-top:0.3rem;'></div>", unsafe_allow_html=True)
+                if st.button("⚡ Auto-Fix Error with AI", type="primary", width="stretch", key=f"autofix_err_btn_{active_version['id']}"):
+                    with st.status(f"Diagnosing and auto-fixing compiler error with Groq ({selected_model})...", expanded=True) as fix_status:
+                        curr_lang = active_version.get("language", current_project["language"])
+                        fix_status.write(f"Feeding compiler output to {selected_model}...")
+                        fix_res = generator.fix_code(
+                            broken_code=active_version["code"],
+                            error_message=err_details,
+                            language=curr_lang,
+                            model=selected_model
+                        )
+                        fixed_code = fix_res["code"]
+                        
+                        fix_status.write(f"Re-compiling and verifying {curr_lang.upper()} output...")
+                        retest_res = runner.execute_code(curr_lang, fixed_code)
+                        
+                        diff_text, added, removed = compute_diff(
+                            active_version["code"],
+                            fixed_code,
+                            old_label=f"v{active_version['version_number']} (broken)",
+                            new_label=f"v{active_version['version_number'] + 1} (fixed)"
+                        )
+                        
+                        fix_status.write("Saving healed snapshot to vault...")
+                        new_ver_id = db.add_version(
+                            current_project["id"],
+                            f"Auto-fix: {err_details.splitlines()[0][:32] if err_details else 'compiler fix'}",
+                            fixed_code,
+                            curr_lang,
+                            output=retest_res.get("stdout", "") or retest_res.get("stderr", "")
+                        )
+                        st.session_state.selected_version_id = new_ver_id
+                        st.session_state[f"term_res_{new_ver_id}"] = retest_res
+                        st.session_state["refinement_notice"] = {
+                            "from_v": active_version["version_number"],
+                            "to_v": active_version["version_number"] + 1,
+                            "prompt": "Auto-healed compilation error",
+                            "added": added,
+                            "removed": removed,
+                            "diff": diff_text
+                        }
+                        if retest_res.get("success"):
+                            fix_status.update(label="Self-healing successful! Zero compiler errors.", state="complete")
+                            st.toast("Compiler error auto-fixed!")
+                        else:
+                            fix_status.update(label="Fix applied (check remaining diagnostics).", state="complete")
+                        st.rerun()
+
         st.markdown(f"""
         <div class="terminal-window">
             <div class="terminal-header">
@@ -809,6 +882,13 @@ with tab_refine:
                     if target_lang not in ("html", "web"):
                         status.write(f"Executing updated {target_lang.upper()} process...")
                         exec_res = runner.execute_code(target_lang, updated_code)
+                        if not exec_res.get("success") and exec_res.get("stderr"):
+                            status.write("⚠️ Compiler error encountered. Auto-healing with AI...")
+                            fix_res = generator.fix_code(updated_code, exec_res["stderr"], target_lang, model=selected_model)
+                            re_res = runner.execute_code(target_lang, fix_res["code"])
+                            if re_res.get("success") or len(re_res.get("stderr", "")) < len(exec_res.get("stderr", "")):
+                                updated_code = fix_res["code"]
+                                exec_res = re_res
                         new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
                     status.write("Writing snapshot to vault...")
