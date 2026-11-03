@@ -383,21 +383,16 @@ if versions:
     else:
         active_version = versions[-1]
 
-    # Auto-sync project language if active version has a distinct language
-    if active_version and active_version.get("language") and active_version["language"] != current_project["language"]:
-        db.update_project_language(current_project["id"], active_version["language"])
-        current_project["language"] = active_version["language"]
-
 # Top Header Bar
 header_cols = st.columns([2.3, 1.2, 0.75, 0.75])
 with header_cols[0]:
-    lang_upper = active_version['language'].upper() if active_version else current_project['language'].upper()
+    current_lang_tag = active_version.get("language", current_project["language"]).upper() if active_version else current_project["language"].upper()
     ver_str = f"v{active_version['version_number']}" if active_version else "v0"
     st.markdown(f"""
     <div style="display: flex; align-items: baseline; gap: 12px;">
         <h2 style="margin: 0; font-weight: 700; letter-spacing: -0.03em; color: #FAFAFA;">{current_project['name']}</h2>
         <div>
-            <span class="ef-pill ef-pill-rose">{lang_upper}</span>
+            <span class="ef-pill ef-pill-rose">{current_lang_tag}</span>
             <span class="ef-pill">{ver_str}</span>
         </div>
     </div>
@@ -405,24 +400,29 @@ with header_cols[0]:
 
 with header_cols[1]:
     target_langs = ["HTML/Tailwind (Visual)", "Python", "Java", "JavaScript", "C++", "Go", "Rust"]
-    current_idx = 0
-    active_lang_key = active_version["language"] if active_version else current_project["language"]
-    for idx, tl in enumerate(target_langs):
-        if (active_lang_key == "html" and "HTML" in tl) or (active_lang_key == tl.lower().split()[0]):
-            current_idx = idx
-            break
-    new_lang_choice = st.selectbox(
+
+    def get_lang_index(lang_code: str) -> int:
+        for idx, tl in enumerate(target_langs):
+            if (lang_code == "html" and "HTML" in tl) or (lang_code == tl.lower().split()[0]):
+                return idx
+        return 1
+
+    def on_project_lang_change():
+        key_name = f"proj_lang_selector_{current_project['id']}_{current_project['language']}"
+        chosen_label = st.session_state.get(key_name)
+        if chosen_label:
+            clean_lang = "html" if "HTML" in chosen_label else chosen_label.lower().split()[0]
+            db.update_project_language(current_project["id"], clean_lang)
+            st.session_state.terminal_result = None
+
+    st.selectbox(
         "Project Language Mode",
         options=target_langs,
-        index=current_idx,
-        key=f"proj_lang_selector_{current_project['id']}",
+        index=get_lang_index(current_project["language"]),
+        key=f"proj_lang_selector_{current_project['id']}_{current_project['language']}",
+        on_change=on_project_lang_change,
         label_visibility="collapsed"
     )
-    clean_new_lang = "html" if "HTML" in new_lang_choice else new_lang_choice.lower().split()[0]
-    if clean_new_lang != current_project["language"]:
-        db.update_project_language(current_project["id"], clean_new_lang)
-        st.session_state.terminal_result = None
-        st.rerun()
 
 with header_cols[2]:
     if active_version:
@@ -718,11 +718,12 @@ with tab_refine:
         if refine_prompt.strip():
             with st.status("Synthesizing refinements with AI...", expanded=True) as status:
                 try:
-                    status.write(f"Querying Groq ({selected_model}) with codebase context...")
+                    target_lang = current_project["language"]
+                    status.write(f"Querying Groq ({selected_model}) for {target_lang.upper()} with codebase context...")
                     res = generator.refine_code(
                         existing_code=active_version["code"],
                         modification_prompt=refine_prompt,
-                        language=active_version.get("language", current_project["language"]),
+                        language=target_lang,
                         model=selected_model
                     )
                     updated_code = res["code"]
@@ -736,10 +737,9 @@ with tab_refine:
                     )
                     
                     new_output = ""
-                    active_lang = active_version.get("language", current_project["language"])
-                    if active_lang not in ("html", "web"):
-                        status.write(f"Executing updated {active_lang.upper()} process...")
-                        exec_res = runner.execute_code(active_lang, updated_code)
+                    if target_lang not in ("html", "web"):
+                        status.write(f"Executing updated {target_lang.upper()} process...")
+                        exec_res = runner.execute_code(target_lang, updated_code)
                         new_output = exec_res.get("stdout", "") or exec_res.get("stderr", "")
                     
                     status.write("Writing snapshot to vault...")
@@ -747,7 +747,7 @@ with tab_refine:
                         current_project["id"],
                         refine_prompt,
                         updated_code,
-                        active_lang,
+                        target_lang,
                         output=new_output
                     )
                     
