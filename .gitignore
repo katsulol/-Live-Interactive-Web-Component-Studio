@@ -41,4 +41,6 @@ Thumbs.db
 .agents/
 .claude/
 
-ResumeLens_Project_Report.docx
+# Documents & Reports
+*.docx
+*.doc
